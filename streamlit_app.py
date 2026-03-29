@@ -21,7 +21,7 @@ with st.sidebar:
     st.title("Настройки")
     st.write(f"Вычисления: **{device.upper()}**")
     st.divider()
-    st.write("Команда: [Твое имя / Название]")
+    st.write("Команда: [ИИ-02]")
     st.write("Проект: Универсальный OCR")
 
 # 4. Основной экран
