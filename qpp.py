@@ -3,38 +3,20 @@ import pytesseract
 from PIL import Image, ImageEnhance, ImageFilter
 from deep_translator import GoogleTranslator
 import re
-import pandas as pd
-from datetime import datetime
-from langdetect import detect, DetectorFactory
-from collections import Counter
 import sys
-
-DetectorFactory.seed = 0
 
 if sys.platform == 'win32':
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 st.set_page_config(
-    page_title="Universal OCR Translator | UrFU",
+    page_title="OCR Translator | UrFU",
     page_icon="",
     layout="wide"
 )
 
-ALL_OCR_LANGS = {
-    'rus': 'Russian',
+SUPPORTED_LANGS = {
     'eng': 'English',
-    'fra': 'French',
-    'deu': 'German',
-    'spa': 'Spanish',
-    'ita': 'Italian',
-    'ukr': 'Ukrainian',
-    'kaz': 'Kazakh',
-    'chi_sim': 'Chinese Simplified',
-    'chi_tra': 'Chinese Traditional',
-    'jpn': 'Japanese',
-    'kor': 'Korean',
-    'ara': 'Arabic',
-    'hin': 'Hindi'
+    'jpn': 'Japanese'
 }
 
 TRANSLATION_LANGS = {
@@ -44,29 +26,8 @@ TRANSLATION_LANGS = {
     'de': 'German',
     'es': 'Spanish',
     'it': 'Italian',
-    'uk': 'Ukrainian',
-    'kk': 'Kazakh',
-    'zh-cn': 'Chinese Simplified',
-    'ja': 'Japanese',
-    'ko': 'Korean',
-    'ar': 'Arabic',
-    'hi': 'Hindi'
-}
-
-LANG_PRIORITY = {
-    'en': 100,
-    'ru': 90,
-    'fr': 80,
-    'de': 80,
-    'es': 80,
-    'it': 80,
-    'uk': 70,
-    'kk': 70,
-    'zh-cn': 60,
-    'ja': 60,
-    'ko': 60,
-    'ar': 50,
-    'hi': 50
+    'zh-cn': 'Chinese',
+    'ko': 'Korean'
 }
 
 def preprocess_image(image):
@@ -81,37 +42,12 @@ def preprocess_image(image):
     
     return image
 
-def detect_language_robust(text):
-    if not text or len(text) < 20:
-        return 'en', 'English'
-    
-    try:
-        detected = detect(text)
-        
-        if detected == 'ar' and not any('\u0600' <= c <= '\u06FF' for c in text):
-            detected = 'en'
-        
-        lang_names = {
-            'en': 'English', 'ru': 'Russian', 'fr': 'French',
-            'de': 'German', 'es': 'Spanish', 'it': 'Italian',
-            'zh-cn': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean',
-            'ar': 'Arabic', 'hi': 'Hindi', 'uk': 'Ukrainian'
-        }
-        
-        return detected, lang_names.get(detected, detected)
-    except:
-        return 'en', 'English'
-
-def smart_recognize(image):
+def recognize_text(image):
     processed_img = preprocess_image(image)
-    
-    best_text = ""
-    best_lang_code = None
-    best_lang_name = None
     
     results = []
     
-    for lang_code, lang_name in ALL_OCR_LANGS.items():
+    for lang_code, lang_name in SUPPORTED_LANGS.items():
         try:
             text = pytesseract.image_to_string(processed_img, lang=lang_code).strip()
             text_len = len(text)
@@ -121,23 +57,15 @@ def smart_recognize(image):
             continue
     
     if not results:
-        return None, None, None
+        return None, None
     
     results.sort(reverse=True)
     best_text = results[0][1]
-    best_lang_code = results[0][2]
     best_lang_name = results[0][3]
     
     clean_text = re.sub(r'[^\w\s.,!?;:\-\'"]', '', best_text).strip()
     
-    detected_lang_code, detected_lang_name = detect_language_robust(clean_text)
-    
-    if detected_lang_code != 'ar':
-        final_lang_name = detected_lang_name
-    else:
-        final_lang_name = best_lang_name
-    
-    return clean_text, final_lang_name, best_lang_code
+    return clean_text, best_lang_name
 
 def translate_text(text, target_lang):
     if not text:
@@ -163,16 +91,16 @@ st.sidebar.info(
     Project team:
     - Leader: [Full Name]
     
-    How it works:
-    1. Tries to recognize text in 14 languages
-    2. Selects the best result
-    3. Automatically detects language
-    4. Translates to selected language
+    Supported languages for recognition:
+    - English
+    - Japanese
+    
+    Translation to any language is available.
     """
 )
 
-st.title("Universal OCR Translator")
-st.markdown("Upload an image with text in any language - AI will detect the language and translate")
+st.title("OCR Translator")
+st.markdown("Upload an image with text in **English** or **Japanese**")
 
 uploaded_file = st.file_uploader(
     "Select image",
@@ -196,10 +124,10 @@ if uploaded_file is not None:
     
     processed = preprocess_image(image)
     with col2:
-        st.image(processed, caption="Processed", width="stretch")
+        st.image(processed, caption="Processed for OCR", width="stretch")
     
-    with st.spinner("Analyzing image (trying all languages)..."):
-        recognized_text, detected_lang, used_lang_code = smart_recognize(image)
+    with st.spinner("Recognizing text..."):
+        recognized_text, detected_lang = recognize_text(image)
         
         if recognized_text and len(recognized_text) > 5:
             with st.spinner("Translating..."):
@@ -207,7 +135,7 @@ if uploaded_file is not None:
             
             chars, words, sentences = count_stats(recognized_text)
             
-            st.success(f"Recognized! Detected language: {detected_lang}")
+            st.success(f"Recognized! Language: {detected_lang}")
             
             col_res1, col_res2 = st.columns(2)
             
@@ -228,10 +156,9 @@ if uploaded_file is not None:
             col_s3.metric("Sentences", sentences)
             
         else:
-            st.error("Text not found. Try:")
+            st.error("Text not found. Supported languages: English, Japanese")
             st.markdown("""
-            - Use image with clearer text
-            - Make sure text is contrast
-            - For Chinese/Japanese use larger font
+            - Make sure the text is clear and contrast
+            - For Japanese, use clear printed font
             - Try another image
             """)
