@@ -1,9 +1,8 @@
 streamlit
-transformers
-torch
-torchvision
-pillow
-accelerate
-deep-translator
-pandas
 pytesseract
+pillow
+deep-translator
+langdetect
+pandas
+numpy
+opencv-python
