@@ -6,8 +6,17 @@ import re
 import pandas as pd
 from datetime import datetime
 from langdetect import detect
+import sys
+import subprocess
 
-
+try:
+    if sys.platform == 'win32':
+        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+    else:
+        subprocess.run(['apt-get', 'update', '-qq'], check=False, capture_output=True)
+        subprocess.run(['apt-get', 'install', '-y', '-qq', 'tesseract-ocr', 'tesseract-ocr-rus'], check=False, capture_output=True)
+except:
+    pass
 
 st.set_page_config(
     page_title="OCR Translator | УрФУ",
