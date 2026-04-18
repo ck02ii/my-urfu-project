@@ -1,11 +1,9 @@
 import streamlit as st
 import pytesseract
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter
 from deep_translator import GoogleTranslator
 import re
 import pandas as pd
-import numpy as np
-import cv2
 from datetime import datetime
 from langdetect import detect
 
@@ -18,24 +16,16 @@ st.set_page_config(
 )
 
 def preprocess_image(image):
-    img_np = np.array(image)
-
-    if len(img_np.shape) == 3:
-        gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
-    else:
-        gray = img_np
-
-    gray = cv2.convertScaleAbs(gray, alpha=1.5, beta=0)
-
-    binary = cv2.adaptiveThreshold(
-        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY, 11, 2
-    )
-
-    denoised = cv2.medianBlur(binary, 3)
-
-    return denoised
-
+    if image.mode != 'L':
+        image = image.convert('L')
+    
+    enhancer = ImageEnhance.Contrast(image)
+    image = enhancer.enhance(2.0)
+    
+    enhancer = ImageEnhance.Sharpness(image)
+    image = enhancer.enhance(2.0)
+    
+    return image
 
 def recognize_text_with_preprocessing(image, force_lang=None):
     try:
@@ -59,7 +49,6 @@ def recognize_text_with_preprocessing(image, force_lang=None):
         st.error(f"Ошибка распознавания: {str(e)}")
         return None
 
-
 def detect_language_from_text(text):
     if not text:
         return None, "не определён"
@@ -74,7 +63,6 @@ def detect_language_from_text(text):
     except:
         return None, "не определён"
 
-
 def translate_text(text, target_lang):
     if not text:
         return None
@@ -84,13 +72,9 @@ def translate_text(text, target_lang):
     except Exception as e:
         return None
 
-
 def count_stats(text):
-    """Подсчёт статистики"""
     return len(text), len(text.split()), text.count('.') + text.count('!') + text.count('?')
 
-
-# ------------------ ИНТЕРФЕЙС ------------------
 st.sidebar.title("О проекте")
 st.sidebar.info(
     """
@@ -105,13 +89,11 @@ st.sidebar.info(
 st.title("Translator")
 st.markdown("Загрузите изображение с текстом")
 
-# Загрузка файла
 uploaded_file = st.file_uploader(
     "Выберите изображение",
     type=["png", "jpg", "jpeg", "bmp", "tiff"]
 )
 
-# Выбор языка перевода
 target_langs = {
     "Русский": "ru",
     "Английский": "en",
@@ -134,7 +116,7 @@ if uploaded_file is not None:
 
     processed = preprocess_image(image)
     with col2:
-        st.image(processed, caption="После обработки (для OCR)", use_container_width=True, clamp=True)
+        st.image(processed, caption="После обработки (для OCR)", use_container_width=True)
 
     with st.spinner("Распознавание текста..."):
         recognized_text = recognize_text_with_preprocessing(image)
@@ -161,7 +143,6 @@ if uploaded_file is not None:
                 else:
                     st.error("Ошибка перевода")
 
-            # Статистика
             col_s1, col_s2, col_s3 = st.columns(3)
             col_s1.metric("Символов", chars)
             col_s2.metric("Слов", words)
