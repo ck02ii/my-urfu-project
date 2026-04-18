@@ -7,7 +7,7 @@ import pandas as pd
 from datetime import datetime
 from langdetect import detect
 
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
 
 st.set_page_config(
     page_title="OCR Translator | УрФУ",
