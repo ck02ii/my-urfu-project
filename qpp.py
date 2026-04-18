@@ -7,16 +7,10 @@ import pandas as pd
 from datetime import datetime
 from langdetect import detect
 import sys
-import subprocess
+import os
 
-try:
-    if sys.platform == 'win32':
-        pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-    else:
-        subprocess.run(['apt-get', 'update', '-qq'], check=False, capture_output=True)
-        subprocess.run(['apt-get', 'install', '-y', '-qq', 'tesseract-ocr', 'tesseract-ocr-rus'], check=False, capture_output=True)
-except:
-    pass
+if sys.platform == 'win32':
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 st.set_page_config(
     page_title="OCR Translator | УрФУ",
@@ -46,9 +40,12 @@ def recognize_text_with_preprocessing(image, force_lang=None):
             text = pytesseract.image_to_string(processed_img, lang='eng')
 
             if len(text.strip()) < 10:
-                text_rus = pytesseract.image_to_string(processed_img, lang='rus')
-                if len(text_rus.strip()) > len(text.strip()):
-                    text = text_rus
+                try:
+                    text_rus = pytesseract.image_to_string(processed_img, lang='rus')
+                    if len(text_rus.strip()) > len(text.strip()):
+                        text = text_rus
+                except:
+                    pass
 
         clean_text = re.sub(r'[^\w\s.,!?;:\-]', '', text).strip()
 
