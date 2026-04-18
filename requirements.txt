@@ -4,5 +4,3 @@ pillow
 deep-translator
 langdetect
 pandas
-numpy
-opencv-python
