@@ -5,8 +5,11 @@ from deep_translator import GoogleTranslator
 import re
 import pandas as pd
 from datetime import datetime
-from langdetect import detect
+from langdetect import detect, DetectorFactory
+from collections import Counter
 import sys
+
+DetectorFactory.seed = 0
 
 if sys.platform == 'win32':
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -50,6 +53,22 @@ TRANSLATION_LANGS = {
     'hi': 'Hindi'
 }
 
+LANG_PRIORITY = {
+    'en': 100,
+    'ru': 90,
+    'fr': 80,
+    'de': 80,
+    'es': 80,
+    'it': 80,
+    'uk': 70,
+    'kk': 70,
+    'zh-cn': 60,
+    'ja': 60,
+    'ko': 60,
+    'ar': 50,
+    'hi': 50
+}
+
 def preprocess_image(image):
     if image.mode != 'L':
         image = image.convert('L')
@@ -62,11 +81,32 @@ def preprocess_image(image):
     
     return image
 
+def detect_language_robust(text):
+    if not text or len(text) < 20:
+        return 'en', 'English'
+    
+    try:
+        detected = detect(text)
+        
+        if detected == 'ar' and not any('\u0600' <= c <= '\u06FF' for c in text):
+            detected = 'en'
+        
+        lang_names = {
+            'en': 'English', 'ru': 'Russian', 'fr': 'French',
+            'de': 'German', 'es': 'Spanish', 'it': 'Italian',
+            'zh-cn': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean',
+            'ar': 'Arabic', 'hi': 'Hindi', 'uk': 'Ukrainian'
+        }
+        
+        return detected, lang_names.get(detected, detected)
+    except:
+        return 'en', 'English'
+
 def smart_recognize(image):
     processed_img = preprocess_image(image)
     
     best_text = ""
-    best_lang = None
+    best_lang_code = None
     best_lang_name = None
     
     results = []
@@ -88,18 +128,13 @@ def smart_recognize(image):
     best_lang_code = results[0][2]
     best_lang_name = results[0][3]
     
-    clean_text = re.sub(r'[^\w\s.,!?;:\-]', '', best_text).strip()
+    clean_text = re.sub(r'[^\w\s.,!?;:\-\'"]', '', best_text).strip()
     
-    try:
-        detected_lang = detect(clean_text)
-        lang_map = {
-            'ru': 'Russian', 'en': 'English', 'fr': 'French',
-            'de': 'German', 'es': 'Spanish', 'it': 'Italian',
-            'zh-cn': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean',
-            'ar': 'Arabic', 'hi': 'Hindi', 'uk': 'Ukrainian'
-        }
-        final_lang_name = lang_map.get(detected_lang, best_lang_name)
-    except:
+    detected_lang_code, detected_lang_name = detect_language_robust(clean_text)
+    
+    if detected_lang_code != 'ar':
+        final_lang_name = detected_lang_name
+    else:
         final_lang_name = best_lang_name
     
     return clean_text, final_lang_name, best_lang_code
