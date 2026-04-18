@@ -9,21 +9,10 @@ if sys.platform == 'win32':
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 st.set_page_config(
-    page_title="OCR Translator | UrFU",
+    page_title="OCR Translator",
     page_icon="",
     layout="wide"
 )
-
-try:
-    available_langs = pytesseract.get_languages()
-    st.sidebar.success(f"Available OCR languages: {', '.join(available_langs)}")
-except:
-    st.sidebar.warning("Could not get language list")
-
-SUPPORTED_LANGS = {
-    'eng': 'English',
-    'jpn': 'Japanese'
-}
 
 TRANSLATION_LANGS = {
     'ru': 'Russian',
@@ -48,19 +37,6 @@ def preprocess_image(image):
     
     return image
 
-def recognize_text(image):
-    processed_img = preprocess_image(image)
-    
-    jpn_text = pytesseract.image_to_string(processed_img, lang='jpn').strip()
-    eng_text = pytesseract.image_to_string(processed_img, lang='eng').strip()
-    
-    if len(jpn_text) > len(eng_text) and len(jpn_text) > 5:
-        return jpn_text, 'Japanese'
-    elif len(eng_text) > 5:
-        return eng_text, 'English'
-    else:
-        return None, None
-
 def translate_text(text, target_lang):
     if not text:
         return None
@@ -76,25 +52,8 @@ def count_stats(text):
     sentences = text.count('.') + text.count('!') + text.count('?') + text.count('。') + text.count('！') + text.count('？')
     return chars, words, sentences
 
-st.sidebar.title("About Project")
-st.sidebar.info(
-    """
-    Educational program:
-    Professional retraining "Solving applied and fundamental problems in humanities using Python programming language" UrFU
-    
-    Project team:
-    - Leader: [Full Name]
-    
-    Supported languages for recognition:
-    - English
-    - Japanese (horizontal only)
-    
-    Translation to any language is available.
-    """
-)
-
 st.title("OCR Translator")
-st.markdown("Upload an image with horizontal text in **English** or **Japanese**")
+st.markdown("Upload an image with horizontal text in English or Japanese")
 
 uploaded_file = st.file_uploader(
     "Select image",
@@ -135,7 +94,18 @@ if uploaded_file is not None:
             recognized_text = pytesseract.image_to_string(processed, lang='jpn').strip()
             detected_lang = "Japanese"
         else:
-            recognized_text, detected_lang = recognize_text(image)
+            jpn_text = pytesseract.image_to_string(processed, lang='jpn').strip()
+            eng_text = pytesseract.image_to_string(processed, lang='eng').strip()
+            
+            if len(jpn_text) > len(eng_text) and len(jpn_text) > 5:
+                recognized_text = jpn_text
+                detected_lang = "Japanese"
+            elif len(eng_text) > 5:
+                recognized_text = eng_text
+                detected_lang = "English"
+            else:
+                recognized_text = None
+                detected_lang = None
         
         if recognized_text and len(recognized_text) > 3:
             with st.spinner("Translating..."):
