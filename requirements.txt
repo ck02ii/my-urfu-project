@@ -2,5 +2,4 @@ streamlit
 pytesseract
 pillow
 deep-translator
-langdetect
 pandas
