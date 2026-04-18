@@ -12,10 +12,52 @@ if sys.platform == 'win32':
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 st.set_page_config(
-    page_title="OCR Translator | УрФУ",
-    page_icon="📖",
+    page_title="Universal OCR Translator | УрФУ",
+    page_icon="🌍",
     layout="wide"
 )
+
+LANGUAGES = {
+    'rus': '🇷🇺 Русский',
+    'eng': '🇬🇧 English',
+    'fra': '🇫🇷 Français',
+    'deu': '🇩🇪 Deutsch',
+    'spa': '🇪🇸 Español',
+    'ita': '🇮🇹 Italiano',
+    'ukr': '🇺🇦 Українська',
+    'kaz': '🇰🇿 Қазақша',
+    'por': '🇵🇹 Português',
+    'nld': '🇳🇱 Nederlands',
+    'pol': '🇵🇱 Polski',
+    'tur': '🇹🇷 Türkçe',
+    'ara': '🇸🇦 العربية',
+    'hin': '🇮🇳 हिन्दी',
+    'chi_sim': '🇨🇳 中文(简体)',
+    'chi_tra': '🇹🇼 中文(繁體)',
+    'jpn': '🇯🇵 日本語',
+    'kor': '🇰🇷 한국어'
+}
+
+TRANSLATION_TARGETS = {
+    'ru': 'Русский',
+    'en': 'English',
+    'fr': 'Français',
+    'de': 'Deutsch',
+    'es': 'Español',
+    'it': 'Italiano',
+    'uk': 'Українська',
+    'kk': 'Қазақша',
+    'pt': 'Português',
+    'nl': 'Nederlands',
+    'pl': 'Polski',
+    'tr': 'Türkçe',
+    'ar': 'العربية',
+    'hi': 'हिन्दी',
+    'zh-cn': '中文(简体)',
+    'zh-tw': '中文(繁體)',
+    'ja': '日本語',
+    'ko': '한국어'
+}
 
 def preprocess_image(image):
     if image.mode != 'L':
@@ -29,42 +71,34 @@ def preprocess_image(image):
     
     return image
 
-def recognize_text_with_preprocessing(image, force_lang=None):
-    try:
-        processed_img = preprocess_image(image)
-
-        if force_lang:
-            text = pytesseract.image_to_string(processed_img, lang=force_lang)
-        else:
-            text = pytesseract.image_to_string(processed_img, lang='eng')
-
-            if len(text.strip()) < 10:
-                try:
-                    text_rus = pytesseract.image_to_string(processed_img, lang='rus')
-                    if len(text_rus.strip()) > len(text.strip()):
-                        text = text_rus
-                except:
-                    pass
-
-        clean_text = re.sub(r'[^\w\s.,!?;:\-]', '', text).strip()
-
-        return clean_text if clean_text and len(clean_text) > 3 else None
-
-    except Exception as e:
-        st.error(f"Ошибка распознавания: {str(e)}")
-        return None
+def recognize_text_all_languages(image):
+    """Пробует распознать текст на всех доступных языках"""
+    processed_img = preprocess_image(image)
+    
+    best_text = ""
+    best_lang = None
+    
+    for lang_code in LANGUAGES.keys():
+        try:
+            text = pytesseract.image_to_string(processed_img, lang=lang_code).strip()
+            if len(text) > len(best_text):
+                best_text = text
+                best_lang = lang_code
+        except Exception as e:
+            continue
+    
+    if best_text and len(best_text) > 3:
+        clean_text = re.sub(r'[^\w\s.,!?;:\-]', '', best_text).strip()
+        return clean_text, best_lang
+    
+    return None, None
 
 def detect_language_from_text(text):
     if not text:
         return None, "не определён"
     try:
         lang_code = detect(text)
-        lang_names = {
-            'ru': '🇷🇺 Русский', 'en': '🇬🇧 English', 'fr': '🇫🇷 Français',
-            'de': '🇩🇪 Deutsch', 'es': '🇪🇸 Español', 'it': '🇮🇹 Italiano',
-            'uk': '🇺🇦 Українська', 'kk': '🇰🇿 Қазақша'
-        }
-        return lang_code, lang_names.get(lang_code, lang_code)
+        return lang_code, TRANSLATION_TARGETS.get(lang_code, lang_code)
     except:
         return None, "не определён"
 
@@ -78,9 +112,12 @@ def translate_text(text, target_lang):
         return None
 
 def count_stats(text):
-    return len(text), len(text.split()), text.count('.') + text.count('!') + text.count('?')
+    chars = len(text)
+    words = len(text.split())
+    sentences = text.count('.') + text.count('!') + text.count('?') + text.count('。') + text.count('！') + text.count('？')
+    return chars, words, sentences
 
-st.sidebar.title("О проекте")
+st.sidebar.title("🌍 О проекте")
 st.sidebar.info(
     """
     **Учебная программа:**  
@@ -88,29 +125,23 @@ st.sidebar.info(
 
     **Команда проекта:**  
     - Руководитель: [ФИО]
+    
+    **Поддерживаемые языки:**  
+    Русский, English, Français, Deutsch, Español, Italiano,  
+    Українська, Қазақша, 中文, 日本語, 한국어, العربية, हिन्दी
     """
 )
 
-st.title("Translator")
-st.markdown("Загрузите изображение с текстом")
+st.title("🌍 Universal OCR Translator")
+st.markdown("Загрузите изображение с текстом на **любом языке** — приложение автоматически определит язык и переведёт")
 
 uploaded_file = st.file_uploader(
     "Выберите изображение",
     type=["png", "jpg", "jpeg", "bmp", "tiff"]
 )
 
-target_langs = {
-    "Русский": "ru",
-    "Английский": "en",
-    "Французский": "fr",
-    "Немецкий": "de",
-    "Испанский": "es",
-    "Итальянский": "it",
-    "Китайский": "zh-cn",
-    "Японский": "ja"
-}
-target_lang_name = st.selectbox("Перевести на:", list(target_langs.keys()), index=0)
-target_lang_code = target_langs[target_lang_name]
+target_lang_name = st.selectbox("Перевести на:", list(TRANSLATION_TARGETS.keys()), format_func=lambda x: TRANSLATION_TARGETS[x], index=0)
+target_lang_code = target_lang_name
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
@@ -121,43 +152,46 @@ if uploaded_file is not None:
 
     processed = preprocess_image(image)
     with col2:
-        st.image(processed, caption="После обработки (для OCR)", width="stretch")
+        st.image(processed, caption="После обработки", width="stretch")
 
-    with st.spinner("Распознавание текста..."):
-        recognized_text = recognize_text_with_preprocessing(image)
+    with st.spinner("🔍 Распознавание текста на всех языках..."):
+        recognized_text, detected_tesseract_lang = recognize_text_all_languages(image)
 
         if recognized_text:
             lang_code, lang_name = detect_language_from_text(recognized_text)
+            
+            if lang_name == "не определён" and detected_tesseract_lang:
+                lang_name = LANGUAGES.get(detected_tesseract_lang, detected_tesseract_lang)
 
-            translated_text = translate_text(recognized_text, target_lang_code)
+            with st.spinner("🌐 Перевод..."):
+                translated_text = translate_text(recognized_text, target_lang_code)
 
             chars, words, sentences = count_stats(recognized_text)
 
-            st.success(f"Язык: {lang_name}")
+            st.success(f"✅ Распознано! Язык оригинала: {lang_name}")
 
             col_res1, col_res2 = st.columns(2)
 
             with col_res1:
-                st.subheader("Оригинал")
+                st.subheader("📝 Оригинал")
                 st.text_area("", recognized_text, height=200, key="orig", label_visibility="collapsed")
 
             with col_res2:
-                st.subheader(f"Перевод ({target_lang_name})")
+                st.subheader(f"🌍 Перевод ({TRANSLATION_TARGETS.get(target_lang_code, target_lang_code)})")
                 if translated_text:
                     st.text_area("", translated_text, height=200, key="trans", label_visibility="collapsed")
                 else:
-                    st.error("Ошибка перевода")
+                    st.error("❌ Ошибка перевода. Проверьте подключение к интернету.")
 
             col_s1, col_s2, col_s3 = st.columns(3)
-            col_s1.metric("Символов", chars)
-            col_s2.metric("Слов", words)
-            col_s3.metric("Предложений", sentences)
+            col_s1.metric("📝 Символов", chars)
+            col_s2.metric("📖 Слов", words)
+            col_s3.metric("📄 Предложений", sentences)
 
         else:
-            st.error("Текст не найден. Попробуйте:")
+            st.error("❌ Текст не найден. Попробуйте:")
             st.markdown("""
             - Использовать изображение с более чётким текстом
-            - Убедиться, что текст контрастный (тёмный на светлом)
-            - Увеличить изображение
-            - Попробовать другое изображение
+            - Убедиться, что текст контрастный
+            - Для китайского/японского использовать крупный шрифт
             """)
