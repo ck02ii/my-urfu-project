@@ -7,7 +7,6 @@ import pandas as pd
 from datetime import datetime
 from langdetect import detect
 import sys
-import os
 
 if sys.platform == 'win32':
     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -118,11 +117,11 @@ if uploaded_file is not None:
 
     col1, col2 = st.columns(2)
     with col1:
-        st.image(image, caption="Оригинал", use_container_width=True)
+        st.image(image, caption="Оригинал", width="stretch")
 
     processed = preprocess_image(image)
     with col2:
-        st.image(processed, caption="После обработки (для OCR)", use_container_width=True)
+        st.image(processed, caption="После обработки (для OCR)", width="stretch")
 
     with st.spinner("Распознавание текста..."):
         recognized_text = recognize_text_with_preprocessing(image)
@@ -140,12 +139,12 @@ if uploaded_file is not None:
 
             with col_res1:
                 st.subheader("Оригинал")
-                st.text_area("", recognized_text, height=200, key="orig")
+                st.text_area("", recognized_text, height=200, key="orig", label_visibility="collapsed")
 
             with col_res2:
                 st.subheader(f"Перевод ({target_lang_name})")
                 if translated_text:
-                    st.text_area("", translated_text, height=200, key="trans")
+                    st.text_area("", translated_text, height=200, key="trans", label_visibility="collapsed")
                 else:
                     st.error("Ошибка перевода")
 
