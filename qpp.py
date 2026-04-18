@@ -1,6 +1,6 @@
 import streamlit as st
 import pytesseract
-from PIL import Image, ImageEnhance, ImageFilter
+from PIL import Image, ImageEnhance
 from deep_translator import GoogleTranslator
 import re
 import sys
@@ -13,6 +13,12 @@ st.set_page_config(
     page_icon="",
     layout="wide"
 )
+
+try:
+    available_langs = pytesseract.get_languages()
+    st.sidebar.success(f"Available OCR languages: {', '.join(available_langs)}")
+except:
+    st.sidebar.warning("Could not get language list")
 
 SUPPORTED_LANGS = {
     'eng': 'English',
@@ -45,27 +51,15 @@ def preprocess_image(image):
 def recognize_text(image):
     processed_img = preprocess_image(image)
     
-    results = []
+    jpn_text = pytesseract.image_to_string(processed_img, lang='jpn').strip()
+    eng_text = pytesseract.image_to_string(processed_img, lang='eng').strip()
     
-    for lang_code, lang_name in SUPPORTED_LANGS.items():
-        try:
-            text = pytesseract.image_to_string(processed_img, lang=lang_code).strip()
-            text_len = len(text)
-            if text_len > 0:
-                results.append((text_len, text, lang_code, lang_name))
-        except Exception as e:
-            continue
-    
-    if not results:
+    if len(jpn_text) > len(eng_text) and len(jpn_text) > 5:
+        return jpn_text, 'Japanese'
+    elif len(eng_text) > 5:
+        return eng_text, 'English'
+    else:
         return None, None
-    
-    results.sort(reverse=True)
-    best_text = results[0][1]
-    best_lang_name = results[0][3]
-    
-    clean_text = re.sub(r'[^\w\s.,!?;:\-\'"「」『』【】（）]', '', best_text).strip()
-    
-    return clean_text, best_lang_name
 
 def translate_text(text, target_lang):
     if not text:
@@ -115,6 +109,13 @@ target_lang_name = st.selectbox(
 )
 target_lang_code = target_lang_name
 
+st.subheader("Recognition settings")
+force_lang = st.radio(
+    "Force recognition language:",
+    ["Auto detect", "English only", "Japanese only"],
+    index=0
+)
+
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
     
@@ -127,9 +128,16 @@ if uploaded_file is not None:
         st.image(processed, caption="Processed for OCR", width="stretch")
     
     with st.spinner("Recognizing text..."):
-        recognized_text, detected_lang = recognize_text(image)
+        if force_lang == "English only":
+            recognized_text = pytesseract.image_to_string(processed, lang='eng').strip()
+            detected_lang = "English"
+        elif force_lang == "Japanese only":
+            recognized_text = pytesseract.image_to_string(processed, lang='jpn').strip()
+            detected_lang = "Japanese"
+        else:
+            recognized_text, detected_lang = recognize_text(image)
         
-        if recognized_text and len(recognized_text) > 5:
+        if recognized_text and len(recognized_text) > 3:
             with st.spinner("Translating..."):
                 translated_text = translate_text(recognized_text, target_lang_code)
             
@@ -156,10 +164,10 @@ if uploaded_file is not None:
             col_s3.metric("Sentences", sentences)
             
         else:
-            st.error("Text not found. Supported languages: English, Japanese (horizontal text only)")
+            st.error("Text not found. Try:")
             st.markdown("""
-            - Make sure the text is clear and contrast
-            - Text must be horizontal (left to right)
-            - For Japanese, use printed font
+            - Select "Japanese only" in recognition settings
+            - Make sure the image is not rotated
+            - Use clear printed Japanese font
             - Try another image
             """)
