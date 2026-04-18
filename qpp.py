@@ -16,7 +16,8 @@ st.set_page_config(
 
 SUPPORTED_LANGS = {
     'eng': 'English',
-    'jpn': 'Japanese'
+    'jpn': 'Japanese',
+    'jpn_vert': 'Japanese (Vertical)'
 }
 
 TRANSLATION_LANGS = {
@@ -42,6 +43,10 @@ def preprocess_image(image):
     
     return image
 
+def rotate_image_for_japanese(image):
+    img = preprocess_image(image)
+    return img
+
 def recognize_text(image):
     processed_img = preprocess_image(image)
     
@@ -62,6 +67,15 @@ def recognize_text(image):
     results.sort(reverse=True)
     best_text = results[0][1]
     best_lang_name = results[0][3]
+    
+    if best_lang_name == 'Japanese (Vertical)':
+        lines = best_text.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            line = line.strip()
+            if line:
+                cleaned_lines.append(line)
+        best_text = ' '.join(cleaned_lines)
     
     clean_text = re.sub(r'[^\w\s.,!?;:\-\'"]', '', best_text).strip()
     
@@ -92,15 +106,16 @@ st.sidebar.info(
     - Leader: [Full Name]
     
     Supported languages for recognition:
-    - English
-    - Japanese
+    - English (horizontal)
+    - Japanese (horizontal)
+    - Japanese (vertical)
     
     Translation to any language is available.
     """
 )
 
 st.title("OCR Translator")
-st.markdown("Upload an image with text in **English** or **Japanese**")
+st.markdown("Upload an image with text in **English** or **Japanese** (horizontal or vertical)")
 
 uploaded_file = st.file_uploader(
     "Select image",
@@ -137,18 +152,14 @@ if uploaded_file is not None:
             
             st.success(f"Recognized! Language: {detected_lang}")
             
-            col_res1, col_res2 = st.columns(2)
+            st.subheader("Original text (Japanese)")
+            st.text(recognized_text)
             
-            with col_res1:
-                st.subheader("Original text")
-                st.text_area("", recognized_text, height=250, key="orig", label_visibility="collapsed")
-            
-            with col_res2:
-                st.subheader(f"Translation ({TRANSLATION_LANGS[target_lang_code]})")
-                if translated_text:
-                    st.text_area("", translated_text, height=250, key="trans", label_visibility="collapsed")
-                else:
-                    st.error("Translation error. Check internet connection.")
+            st.subheader(f"Translation ({TRANSLATION_LANGS[target_lang_code]})")
+            if translated_text:
+                st.text(translated_text)
+            else:
+                st.error("Translation error. Check internet connection.")
             
             col_s1, col_s2, col_s3 = st.columns(3)
             col_s1.metric("Characters", chars)
@@ -156,9 +167,9 @@ if uploaded_file is not None:
             col_s3.metric("Sentences", sentences)
             
         else:
-            st.error("Text not found. Supported languages: English, Japanese")
+            st.error("Text not found. Supported languages: English, Japanese (horizontal and vertical)")
             st.markdown("""
             - Make sure the text is clear and contrast
-            - For Japanese, use clear printed font
+            - For Japanese vertical text, make sure letters are aligned
             - Try another image
             """)
